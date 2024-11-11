@@ -9,6 +9,7 @@ import {
   CardActions,
   Checkbox,
   Button,
+  CircularProgress,
 } from "@mui/material";
 import ProjectDetailModal from "./ProjectDetailModal";
 import { Delete, Info } from "@mui/icons-material";
@@ -16,14 +17,20 @@ import CreateProjectForm from "./CreateProjectForm";
 
 const ProjectTable: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [openModal, setOpenModal] = useState(false);
   const fetchProjects = async () => {
-    const querySnapshot = await getDocs(collection(db, "projects"));
-    const projectData = querySnapshot.docs.map((doc) => doc.data());
-    console.log(projectData);
-    setProjects(projectData);
+    try {
+      setLoading(true);
+      const querySnapshot = await getDocs(collection(db, "projects"));
+      const projectData = querySnapshot.docs.map((doc) => doc.data());
+      console.log(projectData);
+      setProjects(projectData);
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => {
     fetchProjects();
@@ -78,8 +85,16 @@ const ProjectTable: React.FC = () => {
   return (
     <>
        <Box padding={8}>
-        
-    {projects.length === 0 ? (
+        {loading ? (
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            minHeight="200px"
+          >
+            <CircularProgress />
+          </Box>
+        ) : projects.length === 0 ? (
         <Box
           display="flex"
           justifyContent="center"
@@ -157,7 +172,9 @@ const ProjectTable: React.FC = () => {
               </Box>
             </Card> 
       )))}
-      <Button onClick={() => setIsCreateModalOpen(true)} sx={{ alignSelf: 'center' }}>New Project</Button>
+      <Box display="flex" justifyContent="flex-end">
+          <Button variant="contained" onClick={() => setIsCreateModalOpen(true)}>New Project</Button>
+        </Box>
       </Box>
       {selectedProject && (
         <ProjectDetailModal
