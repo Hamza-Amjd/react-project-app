@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, updateDoc } from "firebase/firestore";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   IconButton,
+  Box,
+  Typography,
+  Card,
+  CardActions,
+  Checkbox,
+  Button,
 } from "@mui/material";
 import ProjectDetailModal from "./ProjectDetailModal";
 import { Delete, Info } from "@mui/icons-material";
@@ -18,6 +17,7 @@ import CreateProjectForm from "./CreateProjectForm";
 const ProjectTable: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [openModal, setOpenModal] = useState(false);
   const fetchProjects = async () => {
     const querySnapshot = await getDocs(collection(db, "projects"));
@@ -53,43 +53,124 @@ const ProjectTable: React.FC = () => {
       console.error("Error deleting project: ", error);
     }
   };
+  const handleProjectComplete = async (project:any) => {
+    // Update the local state
+    const updatedProjects = projects.map(p => 
+      p.createdAt === project.createdAt 
+        ? {...p, completed: !p.completed}
+        : p
+    );
+    setProjects(updatedProjects);
+    
+    // Find and update the document in Firestore
+    const querySnapshot = await getDocs(collection(db, "projects"));
+    const docToUpdate = querySnapshot.docs.find(
+      (doc) =>
+        doc.data().name === project.name &&
+        doc.data().createdAt === project.createdAt
+    );
+    if (docToUpdate) {
+      await updateDoc(doc(db, "projects", docToUpdate.id), {
+        completed: !project.completed
+      });
+    }
+  }
   return (
     <>
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Project Name</TableCell>
-              <TableCell>Project Description</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {projects.map((project, index) => (
-              <TableRow key={index}>
-                <TableCell>{project.name}</TableCell>
-                <TableCell>{project.description}</TableCell>
-                <TableCell>
-                  <IconButton onClick={() => handleOpenModal(project)}>
+       <Box padding={8}>
+        
+    {projects.length === 0 ? (
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="200px"
+        >
+          <Typography variant="h6" color="text.secondary">
+            No projects found. Create one to get started!
+          </Typography>
+        </Box>
+      ) : (projects.map((project, index) => (
+            <Card 
+              key={index}
+              sx={{
+                marginBottom: 2,
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: 3
+                }
+              }}
+            >
+              <Box 
+                display="flex" 
+                alignItems="center" 
+                justifyContent="space-between"
+                padding={2}
+              >
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Checkbox 
+                    checked={project.completed} 
+                    onChange={() => handleProjectComplete(project)}
+                    sx={{ '& .MuiSvgIcon-root': { fontSize: 28 } }}
+                  />
+                  <Box>
+                    <Typography 
+                      variant="h6" 
+                      component="div"
+                      sx={{ 
+                        textDecoration: project.completed ? 'line-through' : 'none',
+                        color: project.completed ? 'text.secondary' : 'text.primary'
+                      }}
+                    >
+                      {project.name}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{
+                        textDecoration: project.completed ? 'line-through' : 'none',
+                        mt: 0.5
+                      }}
+                    >
+                      {project.description}
+                    </Typography>
+                  </Box>
+                </Box>
+                
+                <CardActions sx={{ gap: 1 }}>
+                  <IconButton 
+                    onClick={() => handleOpenModal(project)}
+                    size="small"
+                    color="primary"
+                  >
                     <Info />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(project)}>
+                  <IconButton 
+                    onClick={() => handleDelete(project)}
+                    size="small"
+                    color="error"
+                  >
                     <Delete />
                   </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {selectedProject && (
-          <ProjectDetailModal
-            open={openModal}
-            project={selectedProject}
-            onClose={() => setOpenModal(false)}
-          />
-        )}
-      </TableContainer>
-      <CreateProjectForm fetchProjects={fetchProjects} />
+                </CardActions>
+              </Box>
+            </Card> 
+      )))}
+      <Button onClick={() => setIsCreateModalOpen(true)} sx={{ alignSelf: 'center' }}>New Project</Button>
+      </Box>
+      {selectedProject && (
+        <ProjectDetailModal
+          open={openModal}
+          project={selectedProject}
+          onClose={() => setOpenModal(false)}
+        />
+      )}
+      <CreateProjectForm 
+        open={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        fetchProjects={fetchProjects}
+      />
     </>
   );
 };
